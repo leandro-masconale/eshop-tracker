@@ -1,21 +1,139 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
-<head><script src="https://cdn.tailwindcss.com"></script></head>
-<body class="bg-gray-900 text-white p-8">
-  <h1 class="text-3xl font-bold mb-8 text-red-500">eShop Deals</h1>
-  <div id="grid" class="grid grid-cols-1 md:grid-cols-4 gap-6"></div>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Promoções eShop BR</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    .pill-active { background-color: #ef4444; color: white; border-color: #ef4444; }
+    .pill-inactive { background-color: #1f2937; color: #9ca3af; border-color: #374151; }
+    .pill-inactive:hover { background-color: #374151; color: white; }
+  </style>
+</head>
+<body class="bg-gray-900 text-gray-100 min-h-screen font-sans">
+  <div class="max-w-6xl mx-auto px-4 py-8">
+    <header class="pb-6 border-b border-gray-800">
+      <div class="flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div>
+          <h1 class="text-3xl font-extrabold text-red-500 tracking-tight">eShop Tracker</h1>
+          <p class="text-sm text-gray-400 mt-1">Ofertas ativas no Brasil</p>
+        </div>
+        <div class="flex flex-col sm:flex-row gap-3">
+          <input type="text" id="searchInput" placeholder="Filtrar por nome..." class="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-red-500 w-full sm:w-auto">
+          <select id="sortSelect" class="bg-gray-800 border border-gray-700 rounded-lg px-4 py-2 text-sm focus:outline-none focus:border-red-500 w-full sm:w-auto">
+            <option value="discount_desc">Maior Desconto (%)</option>
+            <option value="price_asc">Menor Preço</option>
+            <option value="price_desc">Maior Preço</option>
+            <option value="name_asc">Nome (A-Z)</option>
+          </select>
+        </div>
+      </div>
+      
+      <!-- Navegação por Pills -->
+      <div class="flex gap-2 mt-6 overflow-x-auto pb-2 scrollbar-hide">
+        <button id="pill-all" onclick="setFilter('all')" class="pill-active border px-5 py-2 rounded-full text-sm font-semibold transition whitespace-nowrap">Todos (0)</button>
+        <button id="pill-new" onclick="setFilter('new')" class="pill-inactive border px-5 py-2 rounded-full text-sm font-semibold transition whitespace-nowrap">Novos (0)</button>
+        <button id="pill-old" onclick="setFilter('old')" class="pill-inactive border px-5 py-2 rounded-full text-sm font-semibold transition whitespace-nowrap">Anteriores (0)</button>
+      </div>
+    </header>
+
+    <div id="grid" class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6 mt-8"></div>
+    <div id="empty" class="hidden text-center py-20 text-gray-500">Nenhuma oferta encontrada para este filtro.</div>
+  </div>
+
   <script>
-    fetch('data/deals.json').then(r => r.json()).then(data => {
-      document.getElementById('grid').innerHTML = data.map(g => 
-        `<div class="bg-gray-800 p-4 rounded-xl border border-gray-700">
-          <h2 class="font-bold truncate text-lg">${g.title}</h2>
-          <div class="mt-2 text-green-400 font-black text-xl">R$ ${g.price.toFixed(2)} 
-            <s class="text-xs text-gray-500 font-normal ml-2">R$ ${g.old_price.toFixed(2)}</s>
+    let games = [];
+    let currentFilter = 'all';
+
+    const grid = document.getElementById('grid');
+    const searchInput = document.getElementById('searchInput');
+    const sortSelect = document.getElementById('sortSelect');
+    const empty = document.getElementById('empty');
+
+    async function loadDeals() {
+      try {
+        const res = await fetch('data/deals.json');
+        games = await res.json();
+        
+        // Atualiza os contadores das pills
+        const countNew = games.filter(g => g.is_new).length;
+        const countOld = games.filter(g => !g.is_new).length;
+        
+        document.getElementById('pill-all').innerText = `Todos (${games.length})`;
+        document.getElementById('pill-new').innerText = `Novos (${countNew})`;
+        document.getElementById('pill-old').innerText = `Anteriores (${countOld})`;
+        
+        render();
+      } catch (err) {
+        grid.innerHTML = '<p class="text-red-400 col-span-full text-center">Erro ao carregar ofertas.</p>';
+      }
+    }
+
+    window.setFilter = function(filter) {
+      currentFilter = filter;
+      ['all', 'new', 'old'].forEach(f => {
+        const el = document.getElementById(`pill-${f}`);
+        if (f === filter) {
+          el.classList.replace('pill-inactive', 'pill-active');
+        } else {
+          el.classList.replace('pill-active', 'pill-inactive');
+        }
+      });
+      render();
+    }
+
+    function render() {
+      const term = searchInput.value.toLowerCase();
+      const sort = sortSelect.value;
+
+      let filtered = games.filter(g => g.title.toLowerCase().includes(term));
+
+      if (currentFilter === 'new') filtered = filtered.filter(g => g.is_new);
+      if (currentFilter === 'old') filtered = filtered.filter(g => !g.is_new);
+
+      filtered.sort((a, b) => {
+        const discountA = Math.round((1 - (a.price / a.old_price)) * 100);
+        const discountB = Math.round((1 - (b.price / b.old_price)) * 100);
+        
+        if (sort === 'discount_desc') return discountB - discountA;
+        if (sort === 'price_asc') return a.price - b.price;
+        if (sort === 'price_desc') return b.price - a.price;
+        if (sort === 'name_asc') return a.title.localeCompare(b.title);
+        return 0;
+      });
+
+      empty.classList.toggle('hidden', filtered.length > 0);
+      
+      grid.innerHTML = filtered.map(g => {
+        const discount = Math.round((1 - (g.price / g.old_price)) * 100);
+        const newBadge = g.is_new ? `<span class="bg-blue-600 text-white text-xs font-bold px-2 py-1 rounded ml-2">NOVO</span>` : '';
+        
+        return `
+        <div class="bg-gray-800 border border-gray-700 rounded-xl p-5 flex flex-col justify-between hover:border-gray-500 transition shadow-lg relative">
+          <div>
+            <div class="flex justify-between items-start mb-3">
+              <h2 class="font-bold text-base leading-snug pr-4">${g.title}</h2>
+            </div>
+            <div class="flex items-center mb-1">
+              <span class="text-2xl font-black text-green-400">R$ ${g.price.toFixed(2)}</span>
+              ${newBadge}
+            </div>
+            <div class="flex items-center gap-2 text-sm text-gray-400">
+              <span class="line-through">R$ ${g.old_price.toFixed(2)}</span>
+              <span class="bg-red-900/50 text-red-400 px-2 py-0.5 rounded text-xs border border-red-800">-${discount}%</span>
+            </div>
           </div>
-          <a href="${g.url}" target="_blank" class="mt-4 block bg-red-600 hover:bg-red-700 text-center rounded-lg py-2 transition">Comprar</a>
-        </div>`
-      ).join('');
-    });
+          <a href="${g.url}" target="_blank" rel="noopener" class="mt-5 block text-center bg-gray-700 hover:bg-red-600 text-white text-sm font-semibold py-2.5 rounded-lg transition">
+            Ver na Loja
+          </a>
+        </div>
+      `}).join('');
+    }
+
+    searchInput.addEventListener('input', render);
+    sortSelect.addEventListener('change', render);
+    loadDeals();
   </script>
 </body>
 </html>
