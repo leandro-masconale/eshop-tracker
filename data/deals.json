@@ -1,72 +1,314 @@
 [
   {
-    "title": "Untitled Goose Game",
-    "price": 29.59,
-    "old_price": 73.99,
-    "url": "https://www.nintendo.com/pt-br/store/products/untitled-goose-game-switch/",
-    "is_new": false
-  },
-  {
-    "title": "Terraria",
-    "price": 74.5,
-    "old_price": 149.0,
-    "url": "https://www.nintendo.com/pt-br/store/products/terraria-switch/",
-    "is_new": false
-  },
-  {
-    "title": "Digimon Story Time Stranger",
-    "price": 237.93,
-    "old_price": 339.9,
-    "url": "https://www.nintendo.com/pt-br/store/products/digimon-story-time-stranger-switch/",
-    "is_new": false
-  },
-  {
-    "title": "Heave Ho 2",
-    "price": 29.99,
-    "old_price": 37.49,
-    "url": "https://www.nintendo.com/pt-br/store/products/heave-ho-2-switch/",
-    "is_new": false
-  },
-  {
-    "title": "Go-Go Town!",
-    "price": 80.09,
-    "old_price": 88.99,
-    "url": "https://www.nintendo.com/pt-br/store/products/go-go-town-switch/",
-    "is_new": false
-  },
-  {
     "title": "Graveyard Keeper",
     "price": 25.48,
     "old_price": 101.95,
     "url": "https://www.nintendo.com/pt-br/store/products/graveyard-keeper-switch/",
+    "image": "",
     "is_new": false
+  },
+  {
+    "title": "The Exit 8 Nintendo Switch™ 2 Edition",
+    "price": 13.85,
+    "old_price": 19.79,
+    "url": "https://www.nintendo.com/pt-br/store/products/the-exit-8-nintendo-switch-2-edition-switch-2/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "The Exit 8",
+    "price": 11.99,
+    "old_price": 13.79,
+    "url": "https://www.nintendo.com/pt-br/store/products/the-exit-8-switch/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "DYNASTY WARRIORS: ORIGINS",
+    "price": 254.92,
+    "old_price": 339.9,
+    "url": "https://www.nintendo.com/pt-br/store/products/dynasty-warriors-origins-switch-2/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "Monster Prom: XXL",
+    "price": 11.99,
+    "old_price": 33.99,
+    "url": "https://www.nintendo.com/pt-br/store/products/monster-prom-xxl-switch/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "Heretic + Hexen",
+    "price": 46.23,
+    "old_price": 69.0,
+    "url": "https://www.nintendo.com/pt-br/store/products/heretic-plus-hexen-switch/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "Little Nightmares III",
+    "price": 99.75,
+    "old_price": 199.5,
+    "url": "https://www.nintendo.com/pt-br/store/products/little-nightmares-iii-switch/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "DOOM",
+    "price": 21.8,
+    "old_price": 109.0,
+    "url": "https://www.nintendo.com/pt-br/store/products/doom-switch/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "Chess Ultra",
+    "price": 14.0,
+    "old_price": 35.0,
+    "url": "https://www.nintendo.com/pt-br/store/products/chess-ultra-switch/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "Pure Pool",
+    "price": 17.2,
+    "old_price": 43.0,
+    "url": "https://www.nintendo.com/pt-br/store/products/pure-pool-switch/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "Ember Knights",
+    "price": 23.99,
+    "old_price": 59.99,
+    "url": "https://www.nintendo.com/pt-br/store/products/ember-knights-switch/",
+    "image": "",
+    "is_new": true
   },
   {
     "title": "Crash Bandicoot™ N. Sane Trilogy",
     "price": 59.7,
     "old_price": 199.0,
     "url": "https://www.nintendo.com/pt-br/store/products/crash-bandicoot-n-sane-trilogy-switch/",
+    "image": "",
     "is_new": false
   },
   {
-    "title": "ESCAPE - BACKROOMS HORROR",
-    "price": 17.99,
-    "old_price": 29.99,
-    "url": "https://www.nintendo.com/pt-br/store/products/escape-backrooms-horror-switch/",
+    "title": "eFootball™ Kick-Off!",
+    "price": 80.43,
+    "old_price": 114.9,
+    "url": "https://www.nintendo.com/pt-br/store/products/efootball-kick-off-switch-2/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "Bassmaster® Fishing 2022: Super Deluxe Edition",
+    "price": 32.0,
+    "old_price": 160.0,
+    "url": "https://www.nintendo.com/pt-br/store/products/bassmaster-fishing-2022-super-deluxe-edition-switch/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "Superliminal",
+    "price": 38.0,
+    "old_price": 95.0,
+    "url": "https://www.nintendo.com/pt-br/store/products/superliminal-switch/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "METAL GEAR SOLID: MASTER COLLECTION Vol. 1",
+    "price": 179.94,
+    "old_price": 299.9,
+    "url": "https://www.nintendo.com/pt-br/store/products/metal-gear-solid-master-collection-vol-1-switch/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "Pacote The Elder Scrolls V: Skyrim Anniversary Edition + Fallout 4: Anniversary Edition",
+    "price": 269.94,
+    "old_price": 449.9,
+    "url": "https://www.nintendo.com/pt-br/store/products/the-elder-scrolls-v-skyrim-anniversary-edition-plus-fallout-4-anniversary-edition-bundle-switch-2/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "NEEDY STREAMER OVERLOAD",
+    "price": 35.36,
+    "old_price": 104.0,
+    "url": "https://www.nintendo.com/pt-br/store/products/needy-streamer-overload-switch/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "Darkest Dungeon",
+    "price": 11.99,
+    "old_price": 45.99,
+    "url": "https://www.nintendo.com/pt-br/store/products/darkest-dungeon-switch/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "Crash™ Team Racing Nitro-Fueled",
+    "price": 53.7,
+    "old_price": 179.0,
+    "url": "https://www.nintendo.com/pt-br/store/products/crash-team-racing-nitro-fueled-switch/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "No Man's Sky – Nintendo Switch™ 2 Edition",
+    "price": 119.96,
+    "old_price": 299.9,
+    "url": "https://www.nintendo.com/pt-br/store/products/no-mans-sky-nintendo-switch-2-edition-switch-2/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "Stranded Deep",
+    "price": 64.99,
+    "old_price": 129.99,
+    "url": "https://www.nintendo.com/pt-br/store/products/stranded-deep-switch/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "Digimon Story Time Stranger",
+    "price": 237.93,
+    "old_price": 339.9,
+    "url": "https://www.nintendo.com/pt-br/store/products/digimon-story-time-stranger-switch/",
+    "image": "",
     "is_new": false
+  },
+  {
+    "title": "TCG Card Market Simulator",
+    "price": 19.99,
+    "old_price": 59.99,
+    "url": "https://www.nintendo.com/pt-br/store/products/tcg-card-market-simulator-switch/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "Katamari Damacy REROLL",
+    "price": 44.97,
+    "old_price": 179.9,
+    "url": "https://www.nintendo.com/pt-br/store/products/katamari-damacy-reroll-switch/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "NARUTO SHIPPUDEN™: Ultimate Ninja® STORM 4 ROAD TO BORUTO",
+    "price": 99.8,
+    "old_price": 249.5,
+    "url": "https://www.nintendo.com/pt-br/store/products/naruto-shippuden-ultimate-ninja-storm-4-road-to-boruto-switch/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "DEEEER Simulator: Your Average Everyday Deer Game",
+    "price": 50.97,
+    "old_price": 101.95,
+    "url": "https://www.nintendo.com/pt-br/store/products/deeeer-simulator-your-average-everyday-deer-game-switch/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "Potion Craft: Alchemist Simulator",
+    "price": 33.94,
+    "old_price": 96.99,
+    "url": "https://www.nintendo.com/pt-br/store/products/potion-craft-alchemist-simulator-switch/",
+    "image": "",
+    "is_new": false
+  },
+  {
+    "title": "Deadzone: Rogue",
+    "price": 43.74,
+    "old_price": 62.49,
+    "url": "https://www.nintendo.com/pt-br/store/products/deadzone-rogue-switch-2/",
+    "image": "",
+    "is_new": true
   },
   {
     "title": "SpiderHeck",
     "price": 11.99,
     "old_price": 29.99,
     "url": "https://www.nintendo.com/pt-br/store/products/spiderheck-switch/",
+    "image": "",
     "is_new": false
+  },
+  {
+    "title": "Heave Ho 2",
+    "price": 29.99,
+    "old_price": 37.49,
+    "url": "https://www.nintendo.com/pt-br/store/products/heave-ho-2-switch-2/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "Flight Simulator Delivery: Cargo Business",
+    "price": 16.79,
+    "old_price": 55.99,
+    "url": "https://www.nintendo.com/pt-br/store/products/flight-simulator-delivery-cargo-business-switch/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "Cabernet",
+    "price": 32.99,
+    "old_price": 59.99,
+    "url": "https://www.nintendo.com/pt-br/store/products/cabernet-switch/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "Downwell",
+    "price": 11.99,
+    "old_price": 15.25,
+    "url": "https://www.nintendo.com/pt-br/store/products/downwell-switch/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "Clone Drone in the Danger Zone",
+    "price": 24.99,
+    "old_price": 99.99,
+    "url": "https://www.nintendo.com/pt-br/store/products/clone-drone-in-the-danger-zone-switch/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "The King is Watching",
+    "price": 31.99,
+    "old_price": 39.99,
+    "url": "https://www.nintendo.com/pt-br/store/products/the-king-is-watching-switch/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "The Elder Scrolls V: Skyrim",
+    "price": 99.96,
+    "old_price": 249.9,
+    "url": "https://www.nintendo.com/pt-br/store/products/the-elder-scrolls-v-skyrim-switch/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "Digimon Story Time Stranger",
+    "price": 237.93,
+    "old_price": 339.9,
+    "url": "https://www.nintendo.com/pt-br/store/products/digimon-story-time-stranger-switch-2/",
+    "image": "",
+    "is_new": true
   },
   {
     "title": "No Man's Sky",
     "price": 119.96,
     "old_price": 299.9,
     "url": "https://www.nintendo.com/pt-br/store/products/no-mans-sky-switch/",
+    "image": "",
     "is_new": false
   },
   {
@@ -74,13 +316,175 @@
     "price": 31.86,
     "old_price": 127.45,
     "url": "https://www.nintendo.com/pt-br/store/products/slime-rancher-plortable-edition-switch/",
+    "image": "",
     "is_new": false
   },
   {
-    "title": "Potion Craft: Alchemist Simulator",
-    "price": 33.94,
-    "old_price": 96.99,
-    "url": "https://www.nintendo.com/pt-br/store/products/potion-craft-alchemist-simulator-switch/",
+    "title": "ASTRONEER",
+    "price": 22.24,
+    "old_price": 88.99,
+    "url": "https://www.nintendo.com/pt-br/store/products/astroneer-switch/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "Little Nightmares III",
+    "price": 99.75,
+    "old_price": 199.5,
+    "url": "https://www.nintendo.com/pt-br/store/products/little-nightmares-iii-switch-2/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "Heave Ho 2",
+    "price": 29.99,
+    "old_price": 37.49,
+    "url": "https://www.nintendo.com/pt-br/store/products/heave-ho-2-switch/",
+    "image": "",
+    "is_new": false
+  },
+  {
+    "title": "ESCAPE - BACKROOMS HORROR",
+    "price": 17.99,
+    "old_price": 29.99,
+    "url": "https://www.nintendo.com/pt-br/store/products/escape-backrooms-horror-switch/",
+    "image": "",
+    "is_new": false
+  },
+  {
+    "title": "Overcooked! 2",
+    "price": 33.47,
+    "old_price": 133.9,
+    "url": "https://www.nintendo.com/pt-br/store/products/overcooked-2-switch/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "Paper io 2",
+    "price": 12.5,
+    "old_price": 25.0,
+    "url": "https://www.nintendo.com/pt-br/store/products/paper-io-2-switch/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "Thank Goodness You're Here!",
+    "price": 32.5,
+    "old_price": 65.0,
+    "url": "https://www.nintendo.com/pt-br/store/products/thank-goodness-youre-here-switch/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "Titanic Survival Simulator",
+    "price": 15.59,
+    "old_price": 51.99,
+    "url": "https://www.nintendo.com/pt-br/store/products/titanic-survival-simulator-switch/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "Secret Neighbor",
+    "price": 25.48,
+    "old_price": 101.95,
+    "url": "https://www.nintendo.com/pt-br/store/products/secret-neighbor-switch/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "Trails in the Sky 1st Chapter: Nintendo Switch™ 2 Edition",
+    "price": 152.45,
+    "old_price": 304.9,
+    "url": "https://www.nintendo.com/pt-br/store/products/trails-in-the-sky-1st-chapter-nintendo-switch-2-edition-switch-2/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "Sticky Business",
+    "price": 19.99,
+    "old_price": 49.99,
+    "url": "https://www.nintendo.com/pt-br/store/products/sticky-business-switch/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "Hello Neighbor",
+    "price": 50.98,
+    "old_price": 203.95,
+    "url": "https://www.nintendo.com/pt-br/store/products/hello-neighbor-switch/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "Go-Go Town! – Nintendo Switch 2 Edition",
+    "price": 91.79,
+    "old_price": 101.99,
+    "url": "https://www.nintendo.com/pt-br/store/products/go-go-town-nintendo-switch-2-edition-switch-2/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "Fabledom",
+    "price": 17.59,
+    "old_price": 43.99,
+    "url": "https://www.nintendo.com/pt-br/store/products/fabledom-switch/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "Heave Ho",
+    "price": 12.73,
+    "old_price": 50.95,
+    "url": "https://www.nintendo.com/pt-br/store/products/heave-ho-switch/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "Go-Go Town!",
+    "price": 80.09,
+    "old_price": 88.99,
+    "url": "https://www.nintendo.com/pt-br/store/products/go-go-town-switch/",
+    "image": "",
+    "is_new": false
+  },
+  {
+    "title": "SpeedRunners",
+    "price": 19.11,
+    "old_price": 76.45,
+    "url": "https://www.nintendo.com/pt-br/store/products/speedrunners-switch/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "Hole io",
+    "price": 12.5,
+    "old_price": 25.0,
+    "url": "https://www.nintendo.com/pt-br/store/products/hole-io-switch/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "Hello Neighbor 2",
+    "price": 53.49,
+    "old_price": 213.99,
+    "url": "https://www.nintendo.com/pt-br/store/products/hello-neighbor-2-switch/",
+    "image": "",
+    "is_new": true
+  },
+  {
+    "title": "Untitled Goose Game",
+    "price": 29.59,
+    "old_price": 73.99,
+    "url": "https://www.nintendo.com/pt-br/store/products/untitled-goose-game-switch/",
+    "image": "",
+    "is_new": false
+  },
+  {
+    "title": "Terraria",
+    "price": 74.5,
+    "old_price": 149.0,
+    "url": "https://www.nintendo.com/pt-br/store/products/terraria-switch/",
+    "image": "",
     "is_new": false
   }
 ]
