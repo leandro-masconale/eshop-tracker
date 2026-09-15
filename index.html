@@ -116,6 +116,7 @@
               class="h-9 w-full appearance-none rounded-md border border-input bg-transparent py-1 pl-3 pr-8 text-sm text-foreground shadow-sm outline-none transition-colors focus-visible:border-ring focus-visible:ring-2 focus-visible:ring-ring/40"
             >
               <option value="discount_desc" class="bg-card text-foreground">Maior Desconto (%)</option>
+              <option value="opportunity" class="bg-card text-foreground">Oportunidade</option>
               <option value="price_asc" class="bg-card text-foreground">Menor Preço</option>
               <option value="price_desc" class="bg-card text-foreground">Maior Preço</option>
               <option value="name_asc" class="bg-card text-foreground">Nome (A-Z)</option>
@@ -143,6 +144,34 @@
     let games = [];
     let currentFilter = 'all';
 
+    // Termos usados para a ordenação "Oportunidade", por ordem de prioridade (tier) e,
+    // dentro do tier 1, por ordem de grandeza (posição na lista).
+    const OPPORTUNITY_TIERS = [
+      ["Zelda", "Mario", "Hyrule", "Final Fantasy", "Kong", "Xenoblade", "Fire Emblem"],
+      ["Pokémon", "Starfox", "Star Fox", "Kirby", "Metroid", "Smash Bros", "Castlevania", "Wario"],
+      ["Yoshi", "Splatoon", "Animal Crossing", "Sonic"],
+    ];
+
+    function normalizeText(str) {
+      return str
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+    }
+
+    function getOpportunityRank(title) {
+      const normTitle = normalizeText(title);
+      for (let tier = 0; tier < OPPORTUNITY_TIERS.length; tier++) {
+        const terms = OPPORTUNITY_TIERS[tier];
+        for (let termIndex = 0; termIndex < terms.length; termIndex++) {
+          if (normTitle.includes(normalizeText(terms[termIndex]))) {
+            return { tier: tier + 1, termIndex };
+          }
+        }
+      }
+      return { tier: OPPORTUNITY_TIERS.length + 1, termIndex: -1 };
+    }
+
     const grid = document.getElementById('grid');
     const searchInput = document.getElementById('searchInput');
     const sortSelect = document.getElementById('sortSelect');
@@ -152,6 +181,7 @@
       try {
         const res = await fetch('data/deals.json');
         games = await res.json();
+        games.forEach(g => { g._opportunityRandom = Math.random(); });
 
         // Atualiza os contadores das pills
         const countNew = games.filter(g => g.is_new).length;
@@ -197,6 +227,15 @@
         if (sort === 'price_asc') return a.price - b.price;
         if (sort === 'price_desc') return b.price - a.price;
         if (sort === 'name_asc') return a.title.localeCompare(b.title);
+        if (sort === 'opportunity') {
+          const rankA = getOpportunityRank(a.title);
+          const rankB = getOpportunityRank(b.title);
+          if (rankA.tier !== rankB.tier) return rankA.tier - rankB.tier;
+          if (rankA.termIndex !== rankB.termIndex) return rankA.termIndex - rankB.termIndex;
+          // Dentro do mesmo termo (ou no grupo "todos os outros"), ordena aleatoriamente
+          // usando um peso sorteado uma única vez no carregamento dos dados.
+          return a._opportunityRandom - b._opportunityRandom;
+        }
         return 0;
       });
 
