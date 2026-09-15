@@ -4,7 +4,7 @@ Scraper de promoções da Nintendo eShop Brasil.
 Estratégia:
 1. O índice Algolia da Nintendo (`store_game_pt_br`) tem um limite de segurança
    `paginationLimitedTo` de 1000 resultados por query (hitsPerPage * page nunca
-   pode passar de 1000). Isso significa que, para uma letra muito comum (ex:
+   pode passar de 1000). Isso significa que, para um prefixo muito comum (ex:
    "a", "e", "s"), paginar (page=0,1,2...) NÃO funciona: a partir da página 1
    a API já rejeita a requisição, então boa parte do catálogo era perdida.
 2. Para contornar isso, ao invés de paginar, o script faz "query splitting
@@ -13,9 +13,24 @@ Estratégia:
    subdividido acrescentando mais um caractere (a-z0-9) e cada sub-prefixo é
    buscado separadamente, recursivamente, até que cada busca traga menos que
    o limite ou até uma profundidade máxima de segurança.
-3. Todos os IDs (nsuid/objectID) encontrados são deduplicados num dicionário
-   e, ao final, consultados em lotes de 50 na API oficial de preços da
-   Nintendo, que é a fonte de verdade sobre haver ou não desconto ativo.
+3. Uma execução de diagnóstico (rodada uma vez, no início) descobriu que o
+   índice NÃO expõe um facet chamado "hasDiscount" (era o que a versão
+   anterior deste script usava — por isso zerava tudo). O objeto de cada
+   hit já vem com um campo "price" embutido (ex:
+   {"finalPrice": 18.5, "regPrice": 49.9, "discounted": true, "salePrice": 18.5,
+   "amountOff": 31.4, "percentOff": 63}), que é a própria fonte que a loja
+   usa para mostrar o preço. Ou seja, não é mais preciso consultar uma
+   segunda API de preços separada: o próprio resultado da busca já diz se
+   o item está em promoção e qual o preço.
+4. Como não temos garantia de que "price.discounted" está de fato
+   configurado como facet filtrável no índice (isso pode mudar sem aviso,
+   como já aconteceu uma vez), o script tenta filtrar direto na Algolia
+   (mais rápido) mas confirma sempre no lado do cliente (Python) se
+   price.discounted é realmente true antes de considerar algo uma oferta.
+   Se o filtro do lado da Algolia não funcionar por qualquer motivo, o
+   script detecta isso automaticamente e cai para uma varredura do
+   catálogo inteiro, filtrando tudo aqui mesmo — mais lento, porém à prova
+   de mudanças futuras de schema.
 """
 
 import json
@@ -43,8 +58,11 @@ ALGOLIA_HEADERS = {
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)",
 }
 
-PRICE_API_URL = "https://api.ec.nintendo.com/v1/price"
-PRICE_BATCH_SIZE = 50
+# Nome do facet que (tentamos) usar para filtrar só itens com desconto direto
+# na Algolia. Descoberto via diagnóstico a partir do campo "price.discounted"
+# presente em cada hit. Se não estiver configurado como facet no índice, o
+# script detecta e cai automaticamente para varredura completa + filtro local.
+DISCOUNT_FACET = "price.discounted:true"
 
 DATA_PATH = "data/deals.json"
 
@@ -56,13 +74,15 @@ ALGOLIA_HITS_PER_PAGE = 1000
 # sendo cortada pelo teto da Algolia e precisamos refinar (subdividir) a query.
 SPLIT_THRESHOLD = 1000
 # Profundidade máxima de refinamento (tamanho máximo do prefixo de busca).
-# 3500 ofertas ativas se espalham tranquilamente com prefixos de 2-3
-# caracteres; o limite de 5 é só uma rede de segurança contra loop infinito.
-MAX_PREFIX_DEPTH = 5
+# Se o filtro de desconto funcionar na Algolia, poucos caracteres bastam
+# (o universo de itens em promoção é pequeno). Se cairmos para varredura do
+# catálogo inteiro, prefixos de 3-4 caracteres costumam ser suficientes;
+# 6 é uma rede de segurança contra loop infinito em casos extremos.
+MAX_PREFIX_DEPTH = 6
 
 ALPHABET = list("abcdefghijklmnopqrstuvwxyz0123456789")
 
-MAX_WORKERS = int(os.getenv("SCRAPER_MAX_WORKERS", "6"))
+MAX_WORKERS = int(os.getenv("SCRAPER_MAX_WORKERS", "8"))
 REQUEST_TIMEOUT = int(os.getenv("SCRAPER_TIMEOUT", "20"))
 
 logging.basicConfig(
@@ -93,11 +113,11 @@ def build_session() -> requests.Session:
 # Etapa 1: varredura exaustiva do catálogo via Algolia
 # --------------------------------------------------------------------------
 
-def algolia_query(session: requests.Session, prefix: str, use_facet: bool = True) -> dict:
+def algolia_query(session: requests.Session, prefix: str, use_facet: bool) -> dict:
     """Executa uma única query na Algolia para o prefixo informado."""
     extra: dict = {}
     if use_facet:
-        extra["facetFilters"] = json.dumps([["hasDiscount:true"]])
+        extra["facetFilters"] = json.dumps([[DISCOUNT_FACET]])
 
     params = urllib.parse.urlencode(
         {
@@ -118,109 +138,128 @@ def algolia_query(session: requests.Session, prefix: str, use_facet: bool = True
 
     # A API multi-query da Algolia responde HTTP 200 mesmo quando uma query
     # individual falha; o erro vem embutido no próprio resultado (sem "hits").
-    # Isso fazia o script tratar erros silenciosamente como "zero resultados".
+    # Isso fazia versões antigas deste script tratarem erros silenciosamente
+    # como "zero resultados".
     if "hits" not in result:
         raise RuntimeError(f"Algolia retornou erro para a query (prefixo={prefix!r}): {result}")
 
     return result
 
 
-_diagnostic_done = False
-_diagnostic_lock = Lock()
-
-
-def run_diagnostic_probe(session: requests.Session) -> None:
+def extract_deal(hit: dict) -> dict | None:
     """
-    Roda uma vez só, no início da execução: compara o resultado de uma busca
-    COM e SEM o facetFilters de desconto, e mostra os campos brutos de um hit.
-    Isso é essencial para depurar caso o facet mude de nome/formato no futuro
-    (foi exatamente isso que zerou a coleta numa execução anterior).
+    Verifica (sempre no lado do cliente, independente de facet) se o hit é
+    de fato uma oferta com desconto ativo, usando o campo "price" embutido
+    no próprio resultado da busca — a mesma fonte que a loja usa.
     """
-    global _diagnostic_done
-    with _diagnostic_lock:
-        if _diagnostic_done:
-            return
-        _diagnostic_done = True
-
-    probe_prefix = "a"
-    try:
-        with_facet = algolia_query(session, probe_prefix, use_facet=True)
-        log.info(
-            "[diagnóstico] query='%s' COM facetFilters hasDiscount:true -> nbHits=%s",
-            probe_prefix,
-            with_facet.get("nbHits"),
-        )
-    except Exception as exc:  # noqa: BLE001
-        log.error("[diagnóstico] query COM facetFilters falhou: %s", exc)
-
-    try:
-        without_facet = algolia_query(session, probe_prefix, use_facet=False)
-        nb_hits_total = without_facet.get("nbHits")
-        log.info(
-            "[diagnóstico] query='%s' SEM facetFilters -> nbHits=%s (catálogo geral, não só descontos)",
-            probe_prefix,
-            nb_hits_total,
-        )
-        hits = without_facet.get("hits", [])
-        if hits:
-            sample = hits[0]
-            facetable_hint = {
-                k: v
-                for k, v in sample.items()
-                if "discount" in k.lower() or "price" in k.lower() or "sale" in k.lower()
-            }
-            log.info(
-                "[diagnóstico] campos do primeiro hit (todos): %s",
-                json.dumps(list(sample.keys())),
-            )
-            log.info(
-                "[diagnóstico] campos do primeiro hit relacionados a preço/desconto: %s",
-                json.dumps(facetable_hint, ensure_ascii=False, default=str),
-            )
-    except Exception as exc:  # noqa: BLE001
-        log.error("[diagnóstico] query SEM facetFilters falhou: %s", exc)
-
-
-def normalize_hit(hit: dict) -> tuple[str, dict] | None:
-    """Extrai (id, dados relevantes) de um hit da Algolia, ou None se inválido."""
-    nsuid = hit.get("nsuid") or hit.get("objectID") or hit.get("id")
-    if not nsuid:
+    price_info = hit.get("price") or {}
+    if not price_info.get("discounted"):
         return None
-    nsuid = str(nsuid)
+
+    sale_price = price_info.get("salePrice")
+    reg_price = price_info.get("regPrice")
+    if sale_price is None or reg_price is None:
+        return None
+
+    try:
+        sale_price = float(sale_price)
+        reg_price = float(reg_price)
+    except (TypeError, ValueError):
+        return None
+
+    if sale_price <= 0 or reg_price <= 0 or sale_price >= reg_price:
+        return None
+
+    game_id = hit.get("nsuid") or hit.get("objectID") or hit.get("sku")
+    if not game_id:
+        return None
 
     raw_url = hit.get("url", "") or ""
     if not raw_url.startswith("http"):
         raw_url = f"https://www.nintendo.com{raw_url if raw_url.startswith('/') else '/' + raw_url}"
-    # Corrige possível duplicidade de segmento de idioma na URL.
     clean_url = raw_url.replace("/pt-br/pt-br/", "/pt-br/")
 
     image = (
-        hit.get("boxArt")
-        or hit.get("horizontalHeaderImage")
-        or hit.get("topPictureUrl")
+        hit.get("productImage")
+        or hit.get("productImageSquare")
+        or hit.get("productGallery")
         or ""
     )
+    if isinstance(image, list):
+        image = image[0] if image else ""
 
-    return nsuid, {
+    return {
+        "_id": str(game_id),
         "title": hit.get("title", "Desconhecido"),
+        "price": sale_price,
+        "old_price": reg_price,
         "url": clean_url,
         "image": image,
     }
 
 
-def collect_games() -> dict:
+_facet_usable: bool | None = None
+_facet_lock = Lock()
+
+
+def facet_is_usable(session: requests.Session) -> bool:
     """
-    Varre todo o catálogo com desconto ativo, subdividindo recursivamente
+    Testa uma vez, no início da execução, se o filtro de desconto funciona
+    de fato na Algolia (facet configurado + resultados batendo com o que
+    encontramos checando price.discounted manualmente). Se não bater, a
+    varredura cai para modo "catálogo inteiro + filtro local", que é mais
+    lento mas não depende de nenhum facet específico continuar existindo.
+    """
+    global _facet_usable
+    with _facet_lock:
+        if _facet_usable is not None:
+            return _facet_usable
+
+        probe_prefix = "a"
+        try:
+            with_facet = algolia_query(session, probe_prefix, use_facet=True)
+            hits = with_facet.get("hits", [])
+            nb_hits = with_facet.get("nbHits", 0)
+            confirmed = sum(1 for h in hits if extract_deal(h))
+
+            log.info(
+                "[diagnóstico] facet '%s': nbHits=%s, %d/%d hits retornados são "
+                "realmente descontos confirmados.",
+                DISCOUNT_FACET,
+                nb_hits,
+                confirmed,
+                len(hits),
+            )
+
+            # Só confiamos no facet se ele trouxe resultados e a imensa
+            # maioria deles se confirma como desconto real.
+            _facet_usable = nb_hits > 0 and len(hits) > 0 and confirmed >= len(hits) * 0.9
+        except Exception as exc:  # noqa: BLE001
+            log.warning("[diagnóstico] facet '%s' falhou (%s); usando varredura completa.", DISCOUNT_FACET, exc)
+            _facet_usable = False
+
+        if not _facet_usable:
+            log.warning(
+                "Filtro de desconto da Algolia não é confiável agora — "
+                "a varredura vai passar pelo catálogo inteiro e filtrar "
+                "os descontos aqui mesmo (mais lento, porém mais robusto)."
+            )
+        return _facet_usable
+
+
+def collect_deals() -> dict:
+    """
+    Varre o catálogo (só o subconjunto com desconto, se o facet funcionar;
+    o catálogo inteiro, caso contrário), subdividindo recursivamente
     qualquer prefixo cuja busca esbarre no teto de 1000 resultados da
     Algolia, garantindo que nenhuma oferta fique de fora.
     """
-    games: dict[str, dict] = {}
+    deals: dict[str, dict] = {}
     lock = Lock()
     session = build_session()
 
-    run_diagnostic_probe(session)
+    use_facet = facet_is_usable(session)
 
-    # Fila de prefixos a consultar. Começa com o alfabeto completo.
     pending = list(ALPHABET)
     seen_prefixes: set[str] = set()
     queries_done = 0
@@ -228,7 +267,7 @@ def collect_games() -> dict:
     def process_prefix(prefix: str) -> list[str]:
         """Consulta um prefixo; retorna sub-prefixos a explorar se necessário."""
         try:
-            result = algolia_query(session, prefix)
+            result = algolia_query(session, prefix, use_facet=use_facet)
         except Exception as exc:  # noqa: BLE001 - resiliência a qualquer falha de rede
             log.warning("Falha ao consultar prefixo '%s': %s — tentando de novo depois", prefix, exc)
             return [prefix] if len(prefix) < MAX_PREFIX_DEPTH else []
@@ -238,11 +277,10 @@ def collect_games() -> dict:
 
         with lock:
             for hit in hits:
-                normalized = normalize_hit(hit)
-                if normalized:
-                    games[normalized[0]] = normalized[1]
+                deal = extract_deal(hit)
+                if deal:
+                    deals[deal.pop("_id")] = deal
 
-        # Se bateu no teto e ainda dá para refinar, gera sub-prefixos.
         if nb_hits >= SPLIT_THRESHOLD and len(prefix) < MAX_PREFIX_DEPTH:
             return [prefix + c for c in ALPHABET]
 
@@ -255,7 +293,10 @@ def collect_games() -> dict:
             )
         return []
 
-    log.info("1. Iniciando varredura exaustiva (query-splitting recursivo)...")
+    log.info(
+        "1. Iniciando varredura exaustiva (%s, query-splitting recursivo)...",
+        "usando filtro de desconto da Algolia" if use_facet else "catálogo inteiro + filtro local",
+    )
     while pending:
         batch = [p for p in pending if p not in seen_prefixes]
         pending = []
@@ -270,80 +311,19 @@ def collect_games() -> dict:
                 pending.extend(future.result())
 
     log.info(
-        "Varredura concluída: %d queries executadas, %d jogos únicos com desconto mapeados.",
+        "Varredura concluída: %d queries executadas, %d ofertas com desconto confirmado.",
         queries_done,
-        len(games),
+        len(deals),
     )
-    return games
-
-
-# --------------------------------------------------------------------------
-# Etapa 2: consulta oficial de preços
-# --------------------------------------------------------------------------
-
-def fetch_prices(session: requests.Session, ids: list[str]) -> list[dict]:
-    """Consulta um lote de até 50 IDs na API oficial de preços da Nintendo."""
-    url = f"{PRICE_API_URL}?country=BR&lang=pt&ids={','.join(ids)}"
-    resp = session.get(url, timeout=REQUEST_TIMEOUT)
-    resp.raise_for_status()
-    return resp.json().get("prices", [])
-
-
-def fetch_deals() -> list[dict]:
-    games = collect_games()
-    nsuids = list(games.keys())
-
-    log.info("2. Consultando a API oficial de preços para %d itens...", len(nsuids))
-    session = build_session()
-    batches = [nsuids[i : i + PRICE_BATCH_SIZE] for i in range(0, len(nsuids), PRICE_BATCH_SIZE)]
-
-    deals: list[dict] = []
-    lock = Lock()
-
-    def process_batch(batch: list[str]) -> None:
-        try:
-            prices = fetch_prices(session, batch)
-        except Exception as exc:  # noqa: BLE001
-            log.warning("Falha ao consultar lote de preços (%d ids): %s", len(batch), exc)
-            return
-
-        local_deals = []
-        for price in prices:
-            title_id = str(price.get("title_id"))
-            game = games.get(title_id)
-            if not game:
-                continue
-
-            discount = price.get("discount_price")
-            regular = price.get("regular_price")
-            if not (discount and regular):
-                continue
-
-            try:
-                local_deals.append(
-                    {
-                        "title": game["title"],
-                        "price": float(discount["raw_value"]),
-                        "old_price": float(regular["raw_value"]),
-                        "url": game["url"],
-                        "image": game["image"],
-                    }
-                )
-            except (KeyError, TypeError, ValueError):
-                continue
-
-        with lock:
-            deals.extend(local_deals)
-
-    with ThreadPoolExecutor(max_workers=MAX_WORKERS) as executor:
-        list(executor.map(process_batch, batches))
-
-    log.info("Total de %d ofertas com desconto confirmado pela API de preços.", len(deals))
     return deals
 
 
+def fetch_deals() -> list[dict]:
+    return list(collect_deals().values())
+
+
 # --------------------------------------------------------------------------
-# Etapa 3: diff com o histórico + persistência
+# Etapa 2: diff com o histórico + persistência
 # --------------------------------------------------------------------------
 
 def load_previous_urls() -> set[str]:
@@ -365,7 +345,7 @@ def save_deals(deals: list[dict]) -> None:
 
 
 # --------------------------------------------------------------------------
-# Etapa 4: notificação no Telegram
+# Etapa 3: notificação no Telegram
 # --------------------------------------------------------------------------
 
 def send_telegram_notification(novos: int, anteriores: int, total: int) -> None:
@@ -425,7 +405,7 @@ def main() -> None:
 
     elapsed = time.time() - start
     log.info(
-        "3. Concluído em %.1fs! %d promoções processadas (%d novas, %d mantidas).",
+        "2. Concluído em %.1fs! %d promoções processadas (%d novas, %d mantidas).",
         elapsed,
         len(deals),
         novos,
