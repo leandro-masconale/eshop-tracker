@@ -2,7 +2,7 @@ import os, json, requests
 
 URL = "https://u3b6gr4ua3-dsn.algolia.net/1/indexes/*/queries"
 
-# A chave da API foi atualizada para a versão mais recente
+# Disfarce para o firewall da Nintendo
 HEADERS = {
     "x-algolia-api-key": "a29c6927638bfd8cee23993e51e721c9", 
     "x-algolia-application-id": "U3B6GR4UA3",
@@ -25,7 +25,7 @@ try:
     }
     
     res = requests.post(URL, headers=HEADERS, json=payload)
-    res.raise_for_status() # Vai disparar o erro se o disfarce falhar
+    res.raise_for_status()
     
     data = res.json()
     deals = []
@@ -45,7 +45,18 @@ try:
     token = os.getenv("TELEGRAM_TOKEN")
     chat_id = os.getenv("TELEGRAM_CHAT_ID")
     
-    if deals and token and chat_id:
+    # NOVAS LINHAS DE DIAGNÓSTICO:
+    print(f"--- DIAGNÓSTICO ---")
+    print(f"Token reconhecido? {'SIM' if token else 'NÃO'}")
+    print(f"Chat ID reconhecido? {'SIM' if chat_id else 'NÃO'}")
+    print(f"Qtd Promoções: {len(deals)}")
+    print(f"-------------------")
+    
+    if not token or not chat_id:
+        print("3. Telegram pulado: O script Python não está recebendo as chaves do GitHub.")
+    elif len(deals) == 0:
+        print("3. Telegram pulado: 0 promoções encontradas.")
+    else:
         print("3. Enviando aviso para o Telegram...")
         msg = f"🎮 {len(deals)} promoções na eShop Brasil!\nConfira seu painel no GitHub Pages."
         t_res = requests.post(
@@ -56,8 +67,6 @@ try:
             print(f"Erro no Telegram: {t_res.text}")
         else:
             print("4. Telegram enviado com sucesso!")
-    else:
-        print("3. Telegram pulado (chaves ausentes).")
         
 except Exception as e:
     print(f"❌ Ocorreu um erro: {e}")
