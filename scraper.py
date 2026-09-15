@@ -93,18 +93,18 @@ def build_session() -> requests.Session:
 # Etapa 1: varredura exaustiva do catálogo via Algolia
 # --------------------------------------------------------------------------
 
-def algolia_query(session: requests.Session, prefix: str) -> dict:
+def algolia_query(session: requests.Session, prefix: str, use_facet: bool = True) -> dict:
     """Executa uma única query na Algolia para o prefixo informado."""
-    facet_filters = json.dumps([["hasDiscount:true"]])
+    extra: dict = {}
+    if use_facet:
+        extra["facetFilters"] = json.dumps([["hasDiscount:true"]])
+
     params = urllib.parse.urlencode(
         {
             "query": prefix,
             "hitsPerPage": ALGOLIA_HITS_PER_PAGE,
             "page": 0,
-            "facetFilters": facet_filters,
-            "attributesToRetrieve": json.dumps(
-                ["nsuid", "objectID", "id", "title", "url", "boxArt", "horizontalHeaderImage"]
-            ),
+            **extra,
         }
     )
     payload = {"requests": [{"indexName": ALGOLIA_INDEX, "params": params}]}
@@ -113,7 +113,72 @@ def algolia_query(session: requests.Session, prefix: str) -> dict:
         ALGOLIA_URL, headers=ALGOLIA_HEADERS, json=payload, timeout=REQUEST_TIMEOUT
     )
     resp.raise_for_status()
-    return resp.json()["results"][0]
+    body = resp.json()
+    result = body["results"][0]
+
+    # A API multi-query da Algolia responde HTTP 200 mesmo quando uma query
+    # individual falha; o erro vem embutido no próprio resultado (sem "hits").
+    # Isso fazia o script tratar erros silenciosamente como "zero resultados".
+    if "hits" not in result:
+        raise RuntimeError(f"Algolia retornou erro para a query (prefixo={prefix!r}): {result}")
+
+    return result
+
+
+_diagnostic_done = False
+_diagnostic_lock = Lock()
+
+
+def run_diagnostic_probe(session: requests.Session) -> None:
+    """
+    Roda uma vez só, no início da execução: compara o resultado de uma busca
+    COM e SEM o facetFilters de desconto, e mostra os campos brutos de um hit.
+    Isso é essencial para depurar caso o facet mude de nome/formato no futuro
+    (foi exatamente isso que zerou a coleta numa execução anterior).
+    """
+    global _diagnostic_done
+    with _diagnostic_lock:
+        if _diagnostic_done:
+            return
+        _diagnostic_done = True
+
+    probe_prefix = "a"
+    try:
+        with_facet = algolia_query(session, probe_prefix, use_facet=True)
+        log.info(
+            "[diagnóstico] query='%s' COM facetFilters hasDiscount:true -> nbHits=%s",
+            probe_prefix,
+            with_facet.get("nbHits"),
+        )
+    except Exception as exc:  # noqa: BLE001
+        log.error("[diagnóstico] query COM facetFilters falhou: %s", exc)
+
+    try:
+        without_facet = algolia_query(session, probe_prefix, use_facet=False)
+        nb_hits_total = without_facet.get("nbHits")
+        log.info(
+            "[diagnóstico] query='%s' SEM facetFilters -> nbHits=%s (catálogo geral, não só descontos)",
+            probe_prefix,
+            nb_hits_total,
+        )
+        hits = without_facet.get("hits", [])
+        if hits:
+            sample = hits[0]
+            facetable_hint = {
+                k: v
+                for k, v in sample.items()
+                if "discount" in k.lower() or "price" in k.lower() or "sale" in k.lower()
+            }
+            log.info(
+                "[diagnóstico] campos do primeiro hit (todos): %s",
+                json.dumps(list(sample.keys())),
+            )
+            log.info(
+                "[diagnóstico] campos do primeiro hit relacionados a preço/desconto: %s",
+                json.dumps(facetable_hint, ensure_ascii=False, default=str),
+            )
+    except Exception as exc:  # noqa: BLE001
+        log.error("[diagnóstico] query SEM facetFilters falhou: %s", exc)
 
 
 def normalize_hit(hit: dict) -> tuple[str, dict] | None:
@@ -152,6 +217,8 @@ def collect_games() -> dict:
     games: dict[str, dict] = {}
     lock = Lock()
     session = build_session()
+
+    run_diagnostic_probe(session)
 
     # Fila de prefixos a consultar. Começa com o alfabeto completo.
     pending = list(ALPHABET)
