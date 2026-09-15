@@ -2,9 +2,9 @@ import os, json, requests
 
 URL = "https://u3b6gr4ua3-dsn.algolia.net/1/indexes/*/queries"
 
-# Aqui está o nosso disfarce para passar pelo firewall da Nintendo
+# A chave da API foi atualizada para a versão mais recente
 HEADERS = {
-    "x-algolia-api-key": "a29c6927638bfd8caa2394e63bd1018e", 
+    "x-algolia-api-key": "a29c6927638bfd8cee23993e51e721c9", 
     "x-algolia-application-id": "U3B6GR4UA3",
     "x-algolia-agent": "Algolia for JavaScript (4.22.1); Browser",
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
