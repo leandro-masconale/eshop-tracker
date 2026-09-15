@@ -1,68 +1,90 @@
-import os
-import json
-import requests
+import os, json, requests
+
+ALGOLIA_URL = "https://u3b6gr4ua3-dsn.algolia.net/1/indexes/*/queries"
+HEADERS = {
+    "x-algolia-api-key": "a29c6927638bfd8cee23993e51e721c9", 
+    "x-algolia-application-id": "U3B6GR4UA3",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)"
+}
 
 def fetch_deals():
     deals = []
-    limit = 30
+    print("1. Buscando lista de jogos na Algolia (Nintendo)...")
     
-    print("1. Conectando aos servidores oficiais da Nintendo (ec.nintendo.com)...")
+    # Busca até 300 jogos em promoção
+    payload = {
+        "requests": [
+            {
+                "indexName": "store_game_pt_br", 
+                "params": "query=&hitsPerPage=300&facetFilters=[[\"corePlatforms:Nintendo Switch\"],[\"hasDiscount:true\"]]"
+            }
+        ]
+    }
+    
     try:
-        # Busca a lista oficial de jogos em promoção na eShop Brasil
-        req = requests.get(f"https://ec.nintendo.com/api/BR/pt/search/sales?count={limit}&offset=0")
-        req.raise_for_status()
-        data = req.json()
+        res = requests.post(ALGOLIA_URL, headers=HEADERS, json=payload)
+        res.raise_for_status()
+        hits = res.json()["results"][0].get("hits", [])
     except Exception as e:
-        print(f"❌ Erro ao acessar a Nintendo: {e}")
+        print(f"Erro na Algolia: {e}")
         return []
 
-    total = data.get("total", 0)
-    print(f"Total de jogos em promoção na loja: {total}")
+    # Fallback (Plano B): Caso a Nintendo mude o filtro no futuro, pegamos os 300 mais populares para garimpar
+    if not hits:
+        print("Fallback: Buscando jogos gerais para filtrar preços depois...")
+        payload["requests"][0]["params"] = "query=&hitsPerPage=300&facetFilters=[[\"corePlatforms:Nintendo Switch\"]]"
+        res = requests.post(ALGOLIA_URL, headers=HEADERS, json=payload)
+        hits = res.json()["results"][0].get("hits", [])
+
+    print(f"Total de jogos encontrados no catálogo: {len(hits)}")
     
-    # Para não sobrecarregar o robô, vamos pegar as primeiras 150 promoções (as principais)
-    max_items = min(total, 150)
+    games_dict = {}
+    nsuids = []
     
-    for offset in range(0, max_items, limit):
-        res = requests.get(f"https://ec.nintendo.com/api/BR/pt/search/sales?count={limit}&offset={offset}")
-        if res.status_code != 200: continue
-            
-        contents = res.json().get("contents", [])
-        if not contents: continue
-            
-        # Extrai os IDs dos jogos para perguntar o preço
-        ids = [str(item["id"]) for item in contents if "id" in item]
-        if not ids: continue
-            
-        # Pergunta para a API financeira da Nintendo o preço em Reais (R$) desses IDs
-        price_res = requests.get(f"https://api.ec.nintendo.com/v1/price?country=BR&lang=pt&ids={','.join(ids)}")
-        if price_res.status_code != 200: continue
-            
-        prices_data = price_res.json().get("prices", [])
-        price_dict = {str(p["title_id"]): p for p in prices_data}
+    # Coleta os IDs oficiais (NSUID) de cada jogo
+    for h in hits:
+        nsuid = h.get("nsuid") or h.get("objectID")
+        if nsuid:
+            nsuid = str(nsuid)
+            nsuids.append(nsuid)
+            url_path = h.get("url", "")
+            games_dict[nsuid] = {
+                "title": h.get("title", "Desconhecido"),
+                "url": f"https://www.nintendo.com/pt-br{url_path}" if url_path.startswith("/") else url_path
+            }
+
+    print(f"2. Consultando a API Financeira para os {len(nsuids)} jogos...")
+    
+    # A API de preços da Nintendo aceita checar no máximo 50 IDs por vez
+    chunk_size = 50
+    for i in range(0, len(nsuids), chunk_size):
+        chunk = nsuids[i:i + chunk_size]
+        ids_str = ",".join(chunk)
+        price_url = f"https://api.ec.nintendo.com/v1/price?country=BR&lang=pt&ids={ids_str}"
         
-        # Junta o nome do jogo com o preço
-        for item in contents:
-            item_id = str(item["id"])
-            price_info = price_dict.get(item_id, {})
-            
-            discount = price_info.get("discount_price")
-            regular = price_info.get("regular_price")
-            
-            if discount and regular:
-                try:
-                    disc_val = float(discount["raw_value"])
-                    reg_val = float(regular["raw_value"])
-                    
-                    deals.append({
-                        "title": item.get("formal_name", "Desconhecido"),
-                        "price": disc_val,
-                        "old_price": reg_val,
-                        "image": item.get("hero_banner_url", ""),
-                        "url": f"https://ec.nintendo.com/BR/pt/titles/{item_id}"
-                    })
-                except Exception:
-                    pass
-                    
+        try:
+            p_res = requests.get(price_url)
+            if p_res.status_code == 200:
+                for p in p_res.json().get("prices", []):
+                    tid = str(p.get("title_id"))
+                    if tid in games_dict:
+                        discount = p.get("discount_price")
+                        regular = p.get("regular_price")
+                        
+                        # Se o jogo tem preço original E preço de desconto, está em promoção!
+                        if discount and regular:
+                            try:
+                                deals.append({
+                                    "title": games_dict[tid]["title"],
+                                    "price": float(discount["raw_value"]),
+                                    "old_price": float(regular["raw_value"]),
+                                    "url": games_dict[tid]["url"]
+                                })
+                            except:
+                                pass
+        except Exception as e:
+            print(f"Erro ao buscar preços do lote: {e}")
+
     return deals
 
 def main():
@@ -72,7 +94,7 @@ def main():
     with open("data/deals.json", "w", encoding="utf-8") as f:
         json.dump(deals, f, ensure_ascii=False, indent=2)
         
-    print(f"2. Sucesso! {len(deals)} promoções processadas e salvas.")
+    print(f"3. Sucesso! {len(deals)} promoções processadas e salvas.")
     
     token = os.getenv("TELEGRAM_TOKEN")
     chat_id = os.getenv("TELEGRAM_CHAT_ID")
@@ -84,23 +106,23 @@ def main():
     print(f"-------------------")
     
     if not token or not chat_id:
-        print("3. Telegram cancelado: Chaves não configuradas no GitHub Secrets.")
+        print("4. Telegram cancelado: Chaves ausentes.")
     elif len(deals) == 0:
-        print("3. Telegram cancelado: Nenhuma promoção encontrada.")
+        print("4. Telegram cancelado: 0 promoções.")
     else:
-        print("3. Notificando seu celular...")
-        msg = f"🎮 A eShop Brasil tem {len(deals)} grandes jogos em promoção hoje!\n\nAcesse seu painel para ver a lista."
+        print("4. Notificando Telegram...")
+        msg = f"🎮 A eShop Brasil tem {len(deals)} grandes jogos em promoção hoje!\n\nAcesse seu painel no GitHub Pages para ver a lista."
         try:
             t_res = requests.post(
                 f"https://api.telegram.org/bot{token}/sendMessage", 
                 json={"chat_id": chat_id, "text": msg}
             )
             if t_res.status_code == 200:
-                print("4. Mensagem entregue com sucesso no Telegram!")
+                print("5. Telegram enviado com sucesso!")
             else:
                 print(f"❌ Erro no Telegram: {t_res.text}")
         except Exception as e:
-            print(f"❌ Falha de conexão com o Telegram: {e}")
+            print(f"❌ Falha no Telegram: {e}")
 
 if __name__ == "__main__":
     main()
