@@ -1,17 +1,31 @@
 import os, json, requests
 
 URL = "https://u3b6gr4ua3-dsn.algolia.net/1/indexes/*/queries"
+
+# Aqui está o nosso disfarce para passar pelo firewall da Nintendo
 HEADERS = {
     "x-algolia-api-key": "a29c6927638bfd8caa2394e63bd1018e", 
     "x-algolia-application-id": "U3B6GR4UA3",
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64)" # Evita bloqueio da Nintendo
+    "x-algolia-agent": "Algolia for JavaScript (4.22.1); Browser",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36",
+    "Accept": "application/json",
+    "Origin": "https://www.nintendo.com",
+    "Referer": "https://www.nintendo.com/"
 }
 
 try:
     print("1. Buscando dados da Nintendo...")
-    payload = {"requests": [{"indexName": "store_game_pt_br", "params": "query=&hitsPerPage=150&facetFilters=[[\"corePlatforms:Nintendo Switch\"],[\"hasDiscount:true\"]]"}]}
+    payload = {
+        "requests": [
+            {
+                "indexName": "store_game_pt_br", 
+                "params": "query=&hitsPerPage=200&facetFilters=[[\"corePlatforms:Nintendo Switch\"],[\"hasDiscount:true\"]]"
+            }
+        ]
+    }
+    
     res = requests.post(URL, headers=HEADERS, json=payload)
-    res.raise_for_status()
+    res.raise_for_status() # Vai disparar o erro se o disfarce falhar
     
     data = res.json()
     deals = []
