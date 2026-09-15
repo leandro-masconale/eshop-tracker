@@ -1,13 +1,18 @@
 name: Tracker
-on: [workflow_dispatch, schedule: [{cron: '0 13 * * *'}]]
-permissions: {contents: write}
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 13 * * *'
+permissions:
+  contents: write
 jobs:
   run:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
-        with: {python-version: '3.11'}
+        with:
+          python-version: '3.11'
       - run: pip install requests && python scraper.py
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
@@ -15,5 +20,6 @@ jobs:
       - run: |
           git config user.name "bot"
           git config user.email "bot@github.com"
-          git add . && git commit -m "Atualiza ofertas" || exit 0
+          git add .
+          git commit -m "Atualiza ofertas" || exit 0
           git push
