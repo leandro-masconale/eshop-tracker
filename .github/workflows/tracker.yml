@@ -18,14 +18,17 @@ jobs:
         with:
           python-version: '3.11'
           
-      - run: pip install requests && python scraper.py
+      - name: Rodar script Python
         env:
           TELEGRAM_TOKEN: ${{ secrets.TELEGRAM_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+        run: |
+          pip install requests
+          python scraper.py
           
-      - run: |
+      - name: Salvar resultados
+        run: |
           git config user.name "bot"
           git config user.email "bot@github.com"
-          git add .
-          git commit -m "Atualiza ofertas" || exit 0
-          git push
+          git add data/deals.json
+          git diff --quiet && git diff --staged --quiet || (git commit -m "Atualiza ofertas" && git push)
