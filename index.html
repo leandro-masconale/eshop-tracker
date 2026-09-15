@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head><script src="https://cdn.tailwindcss.com"></script></head>
+<body class="bg-gray-900 text-white p-8">
+  <h1 class="text-3xl font-bold mb-8 text-red-500">eShop Deals</h1>
+  <div id="grid" class="grid grid-cols-1 md:grid-cols-4 gap-6"></div>
+  <script>
+    fetch('data/deals.json').then(r => r.json()).then(data => {
+      document.getElementById('grid').innerHTML = data.map(g => 
+        `<div class="bg-gray-800 p-4 rounded-xl border border-gray-700">
+          <h2 class="font-bold truncate text-lg">${g.title}</h2>
+          <div class="mt-2 text-green-400 font-black text-xl">R$ ${g.price.toFixed(2)} 
+            <s class="text-xs text-gray-500 font-normal ml-2">R$ ${g.old_price.toFixed(2)}</s>
+          </div>
+          <a href="${g.url}" target="_blank" class="mt-4 block bg-red-600 hover:bg-red-700 text-center rounded-lg py-2 transition">Comprar</a>
+        </div>`
+      ).join('');
+    });
+  </script>
+</body>
+</html>
