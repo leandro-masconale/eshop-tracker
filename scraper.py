@@ -10,18 +10,18 @@ HEADERS = {
 def fetch_deals():
     deals = []
     games_dict = {}
-    nsuids = []
     
-    print("1. Varrendo o catálogo completo da Nintendo via Algolia...")
+    print("1. Iniciando a Varredura Alfabética na Algolia...")
     
-    page = 0
-    while True:
-        # Puxa 1.000 jogos por vez. Sem filtros de console, pega Switch e Switch 2!
+    # Varre todo o alfabeto e números para contornar o limite de 1000 da Algolia
+    caracteres = list("abcdefghijklmnopqrstuvwxyz0123456789")
+    
+    for letra in caracteres:
         payload = {
             "requests": [
                 {
                     "indexName": "store_game_pt_br", 
-                    "params": f"query=&hitsPerPage=1000&page={page}"
+                    "params": f"query={letra}&hitsPerPage=1000&facetFilters=[[\"corePlatforms:Nintendo Switch\"]]"
                 }
             ]
         }
@@ -30,42 +30,30 @@ def fetch_deals():
             res = requests.post(ALGOLIA_URL, headers=HEADERS, json=payload)
             res.raise_for_status()
             hits = res.json()["results"][0].get("hits", [])
+            
+            for h in hits:
+                nsuid = h.get("nsuid") or h.get("objectID")
+                if nsuid:
+                    nsuid = str(nsuid)
+                    raw_url = h.get("url", "")
+                    if not raw_url.startswith("http"):
+                        raw_url = f"https://www.nintendo.com{raw_url if raw_url.startswith('/') else '/' + raw_url}"
+                    
+                    img = h.get("boxArt") or h.get("horizontalHeaderImage") or ""
+                    
+                    games_dict[nsuid] = {
+                        "title": h.get("title", "Desconhecido"),
+                        "url": raw_url.replace("/pt-br/pt-br/", "/pt-br/"),
+                        "image": img
+                    }
         except Exception as e:
-            print(f"❌ Erro na Algolia na página {page}: {e}")
-            break
+            print(f"Erro ao buscar termo '{letra}': {e}")
             
-        if not hits:
-            break # Fim das páginas, sai do loop!
-            
-        print(f"   Página {page} lida com sucesso ({len(hits)} jogos processados).")
-        
-        for h in hits:
-            nsuid = h.get("nsuid") or h.get("objectID")
-            if nsuid:
-                nsuid = str(nsuid)
-                nsuids.append(nsuid)
-                
-                raw_url = h.get("url", "")
-                if not raw_url.startswith("http"):
-                    raw_url = f"https://www.nintendo.com{raw_url if raw_url.startswith('/') else '/' + raw_url}"
-                
-                # Resgata a imagem de capa (se existir)
-                img = h.get("boxArt") or h.get("horizontalHeaderImage") or ""
-                
-                games_dict[nsuid] = {
-                    "title": h.get("title", "Desconhecido"),
-                    "url": raw_url.replace("/pt-br/pt-br/", "/pt-br/"),
-                    "image": img
-                }
-                
-        page += 1
-
-    # Remove qualquer ID duplicado que a Nintendo possa ter mandado
-    nsuids = list(set(nsuids))
+    nsuids = list(games_dict.keys())
     print(f"\nTotal único de jogos encontrados no catálogo: {len(nsuids)}")
     
-    print(f"2. Consultando a API de Preços para todos os {len(nsuids)} jogos...")
-    print("   Isso pode levar de 1 a 2 minutos. Processando em lotes de 50...")
+    print(f"2. Consultando a API de Preços para os {len(nsuids)} jogos...")
+    print("   Processando em lotes de 50. Isso levará cerca de 1 a 2 minutos...")
     
     chunk_size = 50
     for i in range(0, len(nsuids), chunk_size):
@@ -81,7 +69,7 @@ def fetch_deals():
                         discount = p.get("discount_price")
                         regular = p.get("regular_price")
                         
-                        # A mágica acontece aqui: Apenas os que de fato têm desconto passam!
+                        # Se o preço de desconto existir, salva na lista de promoções!
                         if discount and regular:
                             try:
                                 deals.append({
@@ -94,10 +82,10 @@ def fetch_deals():
                             except:
                                 pass
         except Exception as e:
-            print(f"❌ Erro no lote {i}: {e}")
+            pass
             
-        # Uma micro-pausa para não sobrecarregar os servidores da Nintendo (Anti-ban)
-        time.sleep(0.3)
+        # Pequena pausa para o servidor da Nintendo não nos bloquear por excesso de velocidade
+        time.sleep(0.2)
 
     return deals
 
