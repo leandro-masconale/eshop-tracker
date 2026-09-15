@@ -11,7 +11,6 @@ def fetch_deals():
     deals = []
     print("1. Buscando lista de jogos na Algolia (Nintendo)...")
     
-    # Busca até 300 jogos em promoção
     payload = {
         "requests": [
             {
@@ -29,7 +28,6 @@ def fetch_deals():
         print(f"Erro na Algolia: {e}")
         return []
 
-    # Fallback (Plano B): Caso a Nintendo mude o filtro no futuro, pegamos os 300 mais populares para garimpar
     if not hits:
         print("Fallback: Buscando jogos gerais para filtrar preços depois...")
         payload["requests"][0]["params"] = "query=&hitsPerPage=300&facetFilters=[[\"corePlatforms:Nintendo Switch\"]]"
@@ -41,7 +39,6 @@ def fetch_deals():
     games_dict = {}
     nsuids = []
     
-    # Coleta os IDs oficiais (NSUID) de cada jogo
     for h in hits:
         nsuid = h.get("nsuid") or h.get("objectID")
         if nsuid:
@@ -50,12 +47,12 @@ def fetch_deals():
             url_path = h.get("url", "")
             games_dict[nsuid] = {
                 "title": h.get("title", "Desconhecido"),
-                "url": f"https://www.nintendo.com/pt-br{url_path}" if url_path.startswith("/") else url_path
+                # 👇 AQUI ESTÁ A CORREÇÃO: Removido o /pt-br duplicado!
+                "url": f"https://www.nintendo.com{url_path}" if url_path.startswith("/") else url_path
             }
 
     print(f"2. Consultando a API Financeira para os {len(nsuids)} jogos...")
     
-    # A API de preços da Nintendo aceita checar no máximo 50 IDs por vez
     chunk_size = 50
     for i in range(0, len(nsuids), chunk_size):
         chunk = nsuids[i:i + chunk_size]
@@ -71,7 +68,6 @@ def fetch_deals():
                         discount = p.get("discount_price")
                         regular = p.get("regular_price")
                         
-                        # Se o jogo tem preço original E preço de desconto, está em promoção!
                         if discount and regular:
                             try:
                                 deals.append({
@@ -99,12 +95,6 @@ def main():
     token = os.getenv("TELEGRAM_TOKEN")
     chat_id = os.getenv("TELEGRAM_CHAT_ID")
     
-    print(f"--- DIAGNÓSTICO ---")
-    print(f"Token OK? {'SIM' if token else 'NÃO'}")
-    print(f"Chat ID OK? {'SIM' if chat_id else 'NÃO'}")
-    print(f"Promoções achadas: {len(deals)}")
-    print(f"-------------------")
-    
     if not token or not chat_id:
         print("4. Telegram cancelado: Chaves ausentes.")
     elif len(deals) == 0:
@@ -113,16 +103,12 @@ def main():
         print("4. Notificando Telegram...")
         msg = f"🎮 A eShop Brasil tem {len(deals)} grandes jogos em promoção hoje!\n\nAcesse seu painel no GitHub Pages para ver a lista."
         try:
-            t_res = requests.post(
+            requests.post(
                 f"https://api.telegram.org/bot{token}/sendMessage", 
                 json={"chat_id": chat_id, "text": msg}
             )
-            if t_res.status_code == 200:
-                print("5. Telegram enviado com sucesso!")
-            else:
-                print(f"❌ Erro no Telegram: {t_res.text}")
         except Exception as e:
-            print(f"❌ Falha no Telegram: {e}")
+            pass
 
 if __name__ == "__main__":
     main()
