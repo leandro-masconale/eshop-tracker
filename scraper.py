@@ -1,4 +1,4 @@
-import os, json, requests
+import os, json, requests, time
 
 ALGOLIA_URL = "https://u3b6gr4ua3-dsn.algolia.net/1/indexes/*/queries"
 HEADERS = {
@@ -9,38 +9,64 @@ HEADERS = {
 
 def fetch_deals():
     deals = []
-    payload = {
-        "requests": [{"indexName": "store_game_pt_br", "params": "query=&hitsPerPage=300&facetFilters=[[\"corePlatforms:Nintendo Switch\"],[\"hasDiscount:true\"]]"}]
-    }
-    
-    try:
-        res = requests.post(ALGOLIA_URL, headers=HEADERS, json=payload)
-        res.raise_for_status()
-        hits = res.json()["results"][0].get("hits", [])
-    except:
-        return []
-
-    if not hits:
-        payload["requests"][0]["params"] = "query=&hitsPerPage=300&facetFilters=[[\"corePlatforms:Nintendo Switch\"]]"
-        res = requests.post(ALGOLIA_URL, headers=HEADERS, json=payload)
-        hits = res.json()["results"][0].get("hits", [])
-
     games_dict = {}
     nsuids = []
     
-    for h in hits:
-        nsuid = h.get("nsuid") or h.get("objectID")
-        if nsuid:
-            nsuid = str(nsuid)
-            nsuids.append(nsuid)
-            raw_url = h.get("url", "")
-            if not raw_url.startswith("http"):
-                raw_url = f"https://www.nintendo.com{raw_url if raw_url.startswith('/') else '/' + raw_url}"
-            games_dict[nsuid] = {
-                "title": h.get("title", "Desconhecido"),
-                "url": raw_url.replace("/pt-br/pt-br/", "/pt-br/")
-            }
+    print("1. Varrendo o catálogo completo da Nintendo via Algolia...")
+    
+    page = 0
+    while True:
+        # Puxa 1.000 jogos por vez. Sem filtros de console, pega Switch e Switch 2!
+        payload = {
+            "requests": [
+                {
+                    "indexName": "store_game_pt_br", 
+                    "params": f"query=&hitsPerPage=1000&page={page}"
+                }
+            ]
+        }
+        
+        try:
+            res = requests.post(ALGOLIA_URL, headers=HEADERS, json=payload)
+            res.raise_for_status()
+            hits = res.json()["results"][0].get("hits", [])
+        except Exception as e:
+            print(f"❌ Erro na Algolia na página {page}: {e}")
+            break
+            
+        if not hits:
+            break # Fim das páginas, sai do loop!
+            
+        print(f"   Página {page} lida com sucesso ({len(hits)} jogos processados).")
+        
+        for h in hits:
+            nsuid = h.get("nsuid") or h.get("objectID")
+            if nsuid:
+                nsuid = str(nsuid)
+                nsuids.append(nsuid)
+                
+                raw_url = h.get("url", "")
+                if not raw_url.startswith("http"):
+                    raw_url = f"https://www.nintendo.com{raw_url if raw_url.startswith('/') else '/' + raw_url}"
+                
+                # Resgata a imagem de capa (se existir)
+                img = h.get("boxArt") or h.get("horizontalHeaderImage") or ""
+                
+                games_dict[nsuid] = {
+                    "title": h.get("title", "Desconhecido"),
+                    "url": raw_url.replace("/pt-br/pt-br/", "/pt-br/"),
+                    "image": img
+                }
+                
+        page += 1
 
+    # Remove qualquer ID duplicado que a Nintendo possa ter mandado
+    nsuids = list(set(nsuids))
+    print(f"\nTotal único de jogos encontrados no catálogo: {len(nsuids)}")
+    
+    print(f"2. Consultando a API de Preços para todos os {len(nsuids)} jogos...")
+    print("   Isso pode levar de 1 a 2 minutos. Processando em lotes de 50...")
+    
     chunk_size = 50
     for i in range(0, len(nsuids), chunk_size):
         chunk = nsuids[i:i + chunk_size]
@@ -54,21 +80,28 @@ def fetch_deals():
                     if tid in games_dict:
                         discount = p.get("discount_price")
                         regular = p.get("regular_price")
+                        
+                        # A mágica acontece aqui: Apenas os que de fato têm desconto passam!
                         if discount and regular:
                             try:
                                 deals.append({
                                     "title": games_dict[tid]["title"],
                                     "price": float(discount["raw_value"]),
                                     "old_price": float(regular["raw_value"]),
-                                    "url": games_dict[tid]["url"]
+                                    "url": games_dict[tid]["url"],
+                                    "image": games_dict[tid]["image"]
                                 })
-                            except: pass
-        except: pass
+                            except:
+                                pass
+        except Exception as e:
+            print(f"❌ Erro no lote {i}: {e}")
+            
+        # Uma micro-pausa para não sobrecarregar os servidores da Nintendo (Anti-ban)
+        time.sleep(0.3)
 
     return deals
 
 def main():
-    # 1. Carrega os dados do dia anterior (se existirem)
     previous_urls = set()
     if os.path.exists("data/deals.json"):
         try:
@@ -78,10 +111,8 @@ def main():
                     previous_urls.add(item["url"])
         except: pass
 
-    # 2. Busca as ofertas de hoje
     deals = fetch_deals()
     
-    # 3. Compara e classifica as novidades
     novos = 0
     anteriores = 0
     
@@ -97,7 +128,8 @@ def main():
     with open("data/deals.json", "w", encoding="utf-8") as f:
         json.dump(deals, f, ensure_ascii=False, indent=2)
         
-    # 4. Lógica das Mensagens Personalizadas
+    print(f"\n3. Sucesso absoluto! {len(deals)} promoções totais identificadas.")
+    
     token = os.getenv("TELEGRAM_TOKEN")
     chat_id = os.getenv("TELEGRAM_CHAT_ID")
     
@@ -105,7 +137,7 @@ def main():
         if novos == 0 and anteriores > 0:
             msg = f"🎮 As {anteriores} promoções de hoje são as mesmas do dia anterior.\n\nAcesse o painel para conferir."
         elif novos > 0 and anteriores > 0:
-            msg = f"🎮 Temos {novos} NOVAS promoções hoje!\n(E {anteriores} do dia anterior continuam ativas).\n\nAcesse o painel para conferir."
+            msg = f"🎮 Temos {novos} NOVAS promoções hoje!\n(E {anteriores} do dia anterior continuam ativas).\nTotal: {len(deals)} promoções.\n\nAcesse o painel para conferir."
         else:
             msg = f"🎮 A eShop Brasil tem {novos} promoções ativas hoje!\n\nAcesse o painel para ver a lista."
             
